@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>矽谷 vs 台北｜稅後薪資與實質購買力比較計算機</title>
+<meta name="description" content="純前端單頁工具：輸入年薪（USD / TWD）與地區，即時算出稅後月收入、生活成本調整後的實質購買力，以及可儲蓄金額。資料�� 2026 聯邦／加州／台灣税制與 Numbeo 生活成本指數。">
+<style>
+  :root{
+    --bg:#080c18; --bg2:#0e1426; --panel:#131a30; --panel2:#1a2340; --panel3:#202b4d;
+    --line:#2a3660; --line2:#37456f;
+    --txt:#eaeefb; --muted:#93a0c6; --muted2:#6f7da6;
+    --acc:#3ddc97; --acc2:#6ea8fe; --violet:#a78bfa;
+    --good:#4ade80; --warn:#fbbf24; --bad:#fb7185;
+    --r:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 600px at 12% -8%, #1b2a55 0%, transparent 60%),
+      radial-gradient(900px 520px at 92% 4%, #3a2358 0%, transparent 62%),
+      var(--bg);
+    color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Hiragino Sans CNS",
+                "Noto Sans TC","Microsoft JhengHei","Source Han Sans TC",system-ui,sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:20px 16px 72px}
+
+  /* ---------- header ---------- */
+  header.top{
+    display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
+    padding:22px 4px 18px;margin-bottom:18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .brand h1{
+    margin:0;font-size:clamp(1.28rem,3.4vw,1.9rem);line-height:1.25;letter-spacing:.2px;
+    background:linear-gradient(96deg,#fff 8%,var(--acc) 52%,var(--violet) 96%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .brand p{margin:0;color:var(--muted);font-size:.88rem;max-width:62ch}
+  .stamp{
+    display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+    font-size:.73rem;color:var(--muted2);white-space:nowrap;
+  }
+  .pill{
+    border:1px solid var(--line2);border-radius:999px;padding:4px 11px;background:rgba(255,255,255,.03);
+  }
+
+  /* ---------- layout ---------- */
+  .layout{display:grid;grid-template-columns:372px minmax(0,1fr);gap:18px;align-items:start}
+  @media (max-width:1000px){ .layout{grid-template-columns:minmax(0,1fr)} }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--r);padding:18px;
+    box-shadow:0 10px 34px rgba(0,0,0,.30);
+    min-width:0;
+  }
+  .card + .card{margin-top:18px}
+  .card h2{
+    margin:0 0 4px;font-size:1.02rem;letter-spacing:.2px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .card h2 .n{
+    font-size:.7rem;font-weight:700;color:var(--bg);background:var(--acc);
+    border-radius:6px;padding:2px 7px;letter-spacing:.4px;
+  }
+  .card .sub{margin:0 0 14px;color:var(--muted);font-size:.8rem}
+  .stack{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+  /* 側欄在桌機固定，且自帶捲軸：視窗再矮也不會把控制項卡在畫面外，
+     也能避免頁面自動捲動時固定元素在游標底下位移，造成誤點。 */
+  @media (min-width:1001px){
+    .side{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
+    .side::-webkit-scrollbar{width:6px}
+    .side::-webkit-scrollbar-thumb{background:var(--line2);border-radius:99px}
+    .side::-webkit-scrollbar-track{background:transparent}
+  }
+
+  /* ---------- form ---------- */
+  .field{margin-bottom:14px}
+  @media (max-width:1000px){
+    .card{padding:15px}
+    .field{margin-bottom:11px}
+    .card .sub{font-size:.78rem}
+    .stats{gap:10px}
+  }
+  .field > label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px;letter-spacing:.3px}
+  .row{display:flex;gap:8px}
+  .row > *{min-width:0}
+  .grow{flex:1 1 auto}
+  input[type=number],input[type=text],select{
+    width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line2);
+    background:#0b1226;color:var(--txt);font-size:16px;font-family:inherit;
+    -webkit-appearance:none;appearance:none;
+  }
+  input[type=number]{font-variant-numeric:tabular-nums}
+  select{
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 19px) 51%,calc(100% - 14px) 51%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--acc2);box-shadow:0 0 0 3px rgba(110,168,254,.18)}
+  .seg{display:flex;background:#0b1226;border:1px solid var(--line2);border-radius:11px;padding:3px;gap:3px}
+  .seg button{
+    flex:1 1 0;border:0;background:transparent;color:var(--muted);
+    padding:8px 6px;border-radius:8px;font:inherit;font-size:.88rem;cursor:pointer;transition:.15s;
+  }
+  .seg button[aria-pressed="true"]{background:linear-gradient(180deg,var(--acc2),#4b7fd4);color:#061024;font-weight:700}
+  .seg button:hover:not([aria-pressed="true"]){color:var(--txt);background:rgba(255,255,255,.05)}
+
+  button.primary{
+    width:100%;padding:13px;border:0;border-radius:12px;cursor:pointer;
+    font:inherit;font-weight:700;font-size:.96rem;color:#04121f;
+    background:linear-gradient(96deg,var(--acc),var(--acc2));
+    box-shadow:0 6px 18px rgba(61,220,151,.18);
+  }
+  button.primary:hover{filter:brightness(1.07)}
+  button.ghost{
+    background:transparent;border:1px solid var(--line2);color:var(--muted);
+    border-radius:9px;padding:6px 11px;font:inherit;font-size:.78rem;cursor:pointer;
+    white-space:nowrap;flex:0 0 auto;
+  }
+  button.ghost:hover{color:var(--txt);border-color:var(--acc2)}
+
+  .presets{display:grid;gap:7px;margin-top:6px}
+  .preset{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;
+    width:100%;padding:9px 12px;border-radius:10px;cursor:pointer;
+    background:rgba(255,255,255,.035);border:1px solid var(--line);color:var(--txt);
+    font:inherit;font-size:.82rem;transition:.15s;
+  }
+  .preset:hover{border-color:var(--acc2);background:rgba(110,168,254,.10)}
+  .preset b{font-weight:700;color:var(--acc)}
+  .preset span{color:var(--muted2);font-size:.75rem;white-space:nowrap}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(178px,1fr))}
+  @media (max-width:1000px){ .stats{grid-template-columns:repeat(auto-fit,minmax(148px,1fr))} }
+  .stat{
+    background:linear-gradient(160deg,var(--panel2) 0%,var(--panel) 100%);
+    border:1px solid var(--line);border-radius:14px;padding:14px 15px;position:relative;overflow:hidden;
+  }
+  .stat::after{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2),var(--violet))}
+  .stat .k{font-size:.74rem;color:var(--muted);letter-spacing:.3px;display:block;margin-bottom:5px}
+  .stat .v{font-size:clamp(1.15rem,3.6vw,1.66rem);font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
+  .stat .v small{font-size:.62em;font-weight:600;color:var(--muted);margin-left:2px}
+  .stat .d{font-size:.74rem;color:var(--muted2);margin-top:4px}
+  .stat.ok .v{color:var(--good)} .stat.warm .v{color:var(--warn)} .stat.cool .v{color:var(--acc2)}
+  .stat.pp .v{color:var(--acc)} .stat.pp::after{background:linear-gradient(90deg,var(--acc),#7ef0c4)}
+
+  /* ---------- tables ---------- */
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px;max-width:100%}
+  .swipe{display:none}
+  @media (max-width:1000px){
+    .swipe{display:block;margin:7px 0 0;font-size:.72rem;color:var(--muted2);text-align:center}
+  }
+  table{width:100%;border-collapse:collapse;font-size:.84rem;min-width:560px}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{
+    text-align:left;position:sticky;left:0;z-index:1;
+    background:var(--panel);box-shadow:1px 0 0 var(--line);
+  }
+  thead th{color:var(--muted);font-weight:600;font-size:.74rem;letter-spacing:.3px;text-transform:none;border-bottom-color:var(--line2)}
+  tbody tr:hover td{background:rgba(255,255,255,.028)}
+  tbody tr:hover td:first-child{background:#1b2440}
+  tr.sel td{background:rgba(61,220,151,.10)}
+  tr.sel td:first-child{background:#17402f}
+  td.pos{color:var(--good)} td.neg{color:var(--bad)}
+  .bar{height:6px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden;min-width:60px;margin-top:5px}
+  .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  .tag{font-size:.68rem;padding:1px 7px;border-radius:99px;border:1px solid var(--line2);color:var(--muted);margin-left:6px}
+  .tag.win{border-color:var(--good);color:var(--good)}
+  .tag.lose{border-color:var(--bad);color:var(--bad)}
+
+  /* ---------- duel ---------- */
+  .duel{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-top:14px}
+  @media (max-width:640px){ .duel{grid-template-columns:minmax(0,1fr)} }
+  .side-card{background:rgba(255,255,255,.032);border:1px solid var(--line);border-radius:13px;padding:14px}
+  .side-card h3{margin:0 0 2px;font-size:1rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .side-card .meta{color:var(--muted2);font-size:.76rem;margin-bottom:11px}
+  .mline{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-size:.83rem}
+  .mline:last-child{border-bottom:0}
+  .mline .lb{color:var(--muted);min-width:0}
+  .mline .vl{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;flex:0 0 auto}
+  .badge{font-size:.66rem;border-radius:99px;padding:1px 8px;border:1px solid var(--line2);color:var(--muted2);font-weight:600}
+  .badge.win{border-color:var(--good);color:var(--good);background:rgba(74,222,128,.12)}
+  .badge.lose{border-color:var(--bad);color:var(--bad);background:rgba(251,113,133,.10)}
+
+  /* ---------- notes ---------- */
+  details{border-top:1px solid var(--line);padding:12px 0}
+  details:first-of-type{border-top:0}
+  summary{cursor:pointer;font-size:.87rem;color:var(--acc2);font-weight:600;list-style:none;display:flex;align-items:center;gap:7px}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸";transition:transform .18s;display:inline-block}
+  details[open] summary::before{transform:rotate(90deg)}
+  .note-body{color:var(--muted);font-size:.82rem;line-height:1.72;padding:10px 0 2px}
+  .note-body ul{margin:8px 0;padding-left:20px}
+  .note-body li{margin:4px 0}
+  .note-body code{background:rgba(110,168,254,.13);color:#bcd6ff;padding:1px 6px;border-radius:5px;font-size:.78rem}
+  .note-body a{color:var(--acc2)}
+  .warnbox{
+    border-left:3px solid var(--warn);background:rgba(251,191,36,.08);
+    padding:11px 13px;border-radius:0 10px 10px 0;margin:10px 0;color:#f5dfae;font-size:.82rem;
+  }
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .foot{margin-top:26px;color:var(--muted2);font-size:.76rem;text-align:center;line-height:1.8}
+  .err{color:var(--bad);font-size:.8rem;margin-top:8px;min-height:1em}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <h1>矽谷 vs 台北｜稅後薪資與實質購買力比較計算機</h1>
+      <p>輸入年薪與地區，即時算出稅後月收入、以生活成本校正後的實質購買力，以及每月可儲蓄金額。純前端運算，資料不會離開你的瀏覽器。</p>
+    </div>
+    <div class="stamp">
+      <span class="pill">稅制年度：2026（美國）／114 年度（台灣）</span>
+      <span class="pill">生活成本：Numbeo 2026</span>
+      <span class="pill" id="stampFx">匯率 1 USD = 32.45 TWD</span>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ================= 控制面板 ================= -->
+    <div class="side">
+      <div class="card">
+        <h2>試算設定</h2>
+        <p class="sub">幣別與地區可獨立選擇，系統會依匯率自動換算當地貨幣後計稅。</p>
+
+        <div style="margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:14px">
+          <label style="display:block;font-size:.78rem;color:var(--muted);margin-bottom:7px">快速套用測試組合</label>
+          <div class="presets">
+            <button type="button" class="preset" data-preset="sv"><b>矽谷 US$150,000</b><span>加州 · San Jose</span></button>
+            <button type="button" class="preset" data-preset="tpe"><b>台北 NT$2,000,000</b><span>台灣 · 台北</span></button>
+            <button type="button" class="preset" data-preset="tx"><b>德州 US$80,000</b><span>德州 · 奧斯汀</span></button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="salary">年薪</label>
+          <div class="row">
+            <input id="salary" class="grow" type="number" inputmode="decimal" min="0" step="1000" value="150000">
+            <div class="seg" id="curSeg" style="flex:0 0 118px" role="group" aria-label="年薪幣別">
+              <button type="button" data-cur="USD" aria-pressed="true">USD</button>
+              <button type="button" data-cur="TWD" aria-pressed="false">TWD</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="region">地區</label>
+          <select id="region"></select>
+        </div>
+
+        <div class="field">
+          <label for="filing">申報身分</label>
+          <div class="seg" id="filingSeg" role="group" aria-label="申報身分">
+            <button type="button" data-filing="single" aria-pressed="true">單人</button>
+            <button type="button" data-filing="married" aria-pressed="false">已婚合併申報</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="budget">每月基本生活成本（當地貨幣）</label>
+          <div class="row">
+            <input id="budget" class="grow" type="number" inputmode="decimal" min="0" step="100" value="0">
+            <button type="button" class="ghost" id="budgetReset" title="還原為 Numbeo 預設值">還原</button>
+          </div>
+          <p class="sub" style="margin:7px 0 0">預設 = Numbeo 單人日常開支 + 市中心一房租金。可自行調整以符合你的生活方式。</p>
+        </div>
+
+        <div class="field">
+          <label for="fx">匯率（1 USD = ? TWD）</label>
+          <input id="fx" type="number" inputmode="decimal" min="1" step="0.01" value="32.45">
+        </div>
+
+        <button class="primary" id="calcBtn" type="button">計算</button>
+        <p class="err" id="err" role="alert"></p>
+      </div>
+    </div>
+
+    <!-- ================= 結果 ================= -->
+    <div class="stack">
+
+      <div class="card" id="resultCard">
+        <h2><span class="n">1</span>稅後收入與購買力</h2>
+        <p class="sub" id="resultSub">—</p>
+        <div class="stats" id="stats"></div>
+      </div>
+
+      <div class="card" id="breakCard">
+        <h2><span class="n">2</span>稅額明細</h2>
+        <p class="sub" id="breakSub">—</p>
+        <div class="scroll"><table id="breakTable"></table></div>
+        <p class="swipe">← 表格可左右滑動查看完整內容 →</p>
+      </div>
+
+      <div class="card" id="compareCard">
+        <h2><span class="n">3</span>同一筆年薪・各地區橫向比較</h2>
+        <p class="sub" id="compareSub">—</p>
+        <div class="scroll"><table id="compareTable"></table></div>
+        <p class="swipe">← 表格可左右滑動查看完整內容 →</p>
+      </div>
+
+      <div class="card" id="duelCard">
+        <h2><span class="n">4</span>雙城對決</h2>
+        <p class="sub">挑選兩個地點，用「同一筆錢」直接比：誰的稅後收入換算後買到更多、存得更多。</p>
+        <div class="row" style="margin-bottom:4px">
+          <select id="duelA" class="grow" aria-label="對決地點 A"></select>
+          <select id="duelB" class="grow" aria-label="對決地點 B"></select>
+        </div>
+        <div class="duel" id="duel"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">5</span>資料來源與計算假設</h2>
+        <p class="sub">每一個係數的出處都列在下面。若某項資料無法確認來源，這裡會明確標示假設。</p>
+
+        <details open>
+          <summary>稅制資料（已查證來源）</summary>
+          <div class="note-body">
+            <ul>
+              <li><b>美國聯邦所得稅 2026</b>：IRS Rev. Proc. 2025-32。單人級距 $12,400 / $50,400 / $105,700 / $201,775 / $256,225 / $640,600，稅率 10%–37%；單人標準扣除額 $16,100、合併申報 $32,200。2026 年起個人免稅額永久取消。</li>
+              <li><b>FICA 2026</b>：Social Security 6.2%，年度工資上限 $184,500（SSA）；Medicare 1.45% 無上限；額外 Medicare 0.9% 適用於單人超過 $200,000／合併超過 $250,000 的工資（IRS Topic 751）。</li>
+              <li><b>加州州稅 2026</b>：FTB 2026 年 10 月公告之 Schedule X（單人）與 Schedule Y（合併）。九級稅率 1%–12.3%，所得額超過 $1,000,000 另加 1% 心理健康服務稅；標準扣除額單人 $5,900／合併 $11,800；個人免稅額抵減單人 $158／合併 $316。</li>
+              <li><b>加州 SDI 2026</b>：員工負擔 1.3%，2024 年起無工資上限（EDD DE 44 / DE 202）。</li>
+              <li><b>德州</b>：德州憲法禁止對個人工資課徵州所得稅（2026 年適用）；本工具僅計聯邦稅與 FICA。</li>
+              <li><b>台灣綜合所得稅 114 年度</b>：財政部台財稅字第 11304670610 號公告。免稅額每人 97,000；標準扣除額單身 131,000／有配偶 262,000；薪資所得特別扣除額 218,000；課稅級距 590,000 / 1,330,000 / 2,660,000 / 4,980,000，稅率 5% / 12% / 20% / 30% / 40%，累進差額 0 / 41,300 / 147,700 / 413,700 / 911,700。</li>
+              <li><b>台灣勞保與健保 2026（115 年）</b>：勞保（含就業保險）費率 12.5%，勞工自付 20%，投保薪資最高級距 45,800；健保费率 5.17%，勞工自付 30%，投保金額最高級距 313,000；勞退雇主提繳 6%，月提繳工資上限 150,000。</li>
+            </ul>
+            <div class="warnbox">
+              <b>⚠ 兩項無法即時確認、已採用的假設</b>
+              <ol style="margin:8px 0 0;padding-left:20px">
+                <li><b>台灣 115 年度（2026 所得）稅額公告尚未發布</b>：財政部預計 2026 年 11 月公告，故本工具沿用最新已公告的 114 年度（2025 所得）數據。114 年度因 CPI 漲幅 2.29% 未達 3% 門檻而免予調整，故級距與 113 年度相同。實際申報時請以財政部公告為準。</li>
+                <li><b>健保投保金額級距表以連續上限近似</b>：健保署 58 級距／12 級投保金額對照表未逐級建入，改以「月薪資上限 313,000」連續計算。對多數薪資級距造成的誤差低於健保費用的 1%，影響稅後月薪不到 0.15%。</li>
+              </ol>
+            </div>
+          </div>
+        </details>
+
+        <details>
+          <summary>生活成本與匯率資料</summary>
+          <div class="note-body">
+            <ul>
+              <li><b>生活成本</b>：Numbeo。每月基本生活成本 =「單人日常開支（不含房租）」+「市中心一房租金」。美國城市取 2026-06-01 快照（西雅圖為 2026-10-27），台北取 2026 年初快照；每個城市的資料日期會直接標在「稅額明細」表的生活成本列上。</li>
+              <li><b>生活成本指數</b>：Numbeo「Cost of Living Plus Rent Index」，紐約 = 100。用於把各地稅後月收入換算成「以紐約物價計算的等值月收入」，作為跨城市的實質購買力指標。</li>
+              <li><b>匯率</b>：1 USD = 32.45 TWD，來源為中央銀行新臺幣／美元銀行間收盤匯率 2026/10/27。可在左側自行調整。</li>
+            </ul>
+            <p style="margin-top:8px">Numbeo 為群眾回報資料，持續更新，個別城市可能有數個百分點的誤差；本工具的結果應視為規劃量級的參考，而非精確金額。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>模型簡化說明</summary>
+          <div class="note-body">
+            <ul>
+              <li>僅計算「薪資所得」，不計投資、股票、獎金等其他所得，也不計可扣除項目（採標準扣除額）。</li>
+              <li>美國：加州 AGI 直接沿用聯邦 AGI，未模擬 Schedule CA 的州級調整項目；未計 Renter's Credit、401(k) 員工遞延或雇主提供的健保津貼。</li>
+              <li>台灣：採「薪資所得特別扣除額」而非「必要費用」；免稅額僅計納稅義務人本人（已婚合併申報時計 2 人）；未計眷屬保費、國民年金（受僱且已投勞保者免參加）、房屋租金特別扣除額。</li>
+              <li>雇主提繳的勞退（6%）不從薪資扣除，因此不列入「稅後月收入」，但會另外列為你的退休帳戶累積。</li>
+              <li>生活成本模型假設單人、獨立居住、市中心一房。家庭、買房或自排的實際開支會顯著不同。</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <p class="foot">
+        純前端單一 HTML 檔案 · 無後端、無外部框架、無外部資源請求 · 所有運算皆在你的瀏覽器內完成<br>
+        資料截至 2026-10-28 ｜ 僅供個人財務規劃參考，不構成稅務或投資建議
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. 資料層
+   ============================================================ */
+
+/* 1.1 美國聯邦所得稅 2026（IRS Rev. Proc. 2025-32） */
+const FED_2026 = {
+  single: {
+    std: 16100,
+    brackets: [
+      { upTo: 12400,    rate: 0.10 },
+      { upTo: 50400,    rate: 0.12 },
+      { upTo: 105700,   rate: 0.22 },
+      { upTo: 201775,   rate: 0.24 },
+      { upTo: 256225,   rate: 0.32 },
+      { upTo: 640600,   rate: 0.35 },
+      { upTo: Infinity, rate: 0.37 }
+    ]
+  },
+  married: {
+    std: 32200,
+    brackets: [
+      { upTo: 24800,    rate: 0.10 },
+      { upTo: 100800,   rate: 0.12 },
+      { upTo: 211400,   rate: 0.22 },
+      { upTo: 403550,   rate: 0.24 },
+      { upTo: 512450,   rate: 0.32 },
+      { upTo: 768700,   rate: 0.35 },
+      { upTo: Infinity, rate: 0.37 }
+    ]
+  }
+};
+
+/* 1.2 FICA 2026（SSA / IRS Topic 751） */
+const FICA_2026 = {
+  ssRate: 0.062,
+  ssWageBase: 184500,
+  medicareRate: 0.0145,
+  addlMedicareRate: 0.009,
+  addlThreshold: { single: 200000, married: 250000 }
+};
+
+/* 1.3 加州 2026（FTB 2026 Schedule X / Y） */
+const CA_2026 = {
+  single: {
+    std: 5900,
+    exemptionCredit: 158,
+    brackets: [
+      { upTo: 11456,    rate: 0.01 },
+      { upTo: 27157,    rate: 0.02 },
+      { upTo: 42861,    rate: 0.04 },
+      { upTo: 59498,    rate: 0.06 },
+      { upTo: 75197,    rate: 0.08 },
+      { upTo: 384109,   rate: 0.093 },
+      { upTo: 460927,   rate: 0.103 },
+      { upTo: 768213,   rate: 0.113 },
+      { upTo: Infinity, rate: 0.123 }
+    ]
+  },
+  married: {
+    std: 11800,
+    exemptionCredit: 316,
+    brackets: [
+      { upTo: 22912,    rate: 0.01 },
+      { upTo: 54314,    rate: 0.02 },
+      { upTo: 85722,    rate: 0.04 },
+      { upTo: 118996,   rate: 0.06 },
+      { upTo: 150394,   rate: 0.08 },
+      { upTo: 768218,   rate: 0.093 },
+      { upTo: 921854,   rate: 0.103 },
+      { upTo: 1536426,  rate: 0.113 },
+      { upTo: Infinity, rate: 0.123 }
+    ]
+  },
+  mhstThreshold: 1000000,
+  mhstRate: 0.01,
+  sdiRate: 0.013
+};
+
+/* 1.4 台灣 114 年度（2025 所得，財政部公告）+ 115 年保費級距 */
+const TW_114 = {
+  exemptionPerPerson: 97000,
+  salaryDeduction: 218000,
+  standardDeduction: { single: 131000, married: 262000 },
+  brackets: [
+    { upTo: 590000,    rate: 0.05, diff: 0 },
+    { upTo: 1330000,   rate: 0.12, diff: 41300 },
+    { upTo: 2660000,   rate: 0.20, diff: 147700 },
+    { upTo: 4980000,   rate: 0.30, diff: 413700 },
+    { upTo: Infinity, rate: 0.40, diff: 911700 }
+  ],
+  laborInsurance: {
+    rate: 0.125,          // 勞保（含就業保險）費率
+    employeeShare: 0.20,  // 勞工自付比例
+    cap: 45800,           // 2026 最高投保級距
+    tiers: [29500, 31800, 33300, 34800, 36300, 38200, 40100, 42000, 43900, 45800]
+  },
+  nhi: {
+    rate: 0.0517,         // 健保费率
+    employeeShare: 0.30,  // 勞工自付比例
+    cap: 313000           // 最高投保金額級距
+  },
+  pension: {
+    employerRate: 0.06,   // 勞退雇主提繳率
+    cap: 150000           // 月提繳工資上限
+  }
+};
+
+/* 1.5 地區資料（生活成本：Numbeo） */
+const REGIONS = [
+  {
+    id: 'sanjose', label: '矽谷 San Jose', city: 'San Jose, CA', country: 'US',
+    currency: 'USD', tax: 'CA', taxLabel: '加州',
+    col: { singleExRent: 1558, rent1br: 3163, index: 80.5, vintage: '2026-06-01' }
+  },
+  {
+    id: 'sf', label: '舊金山 San Francisco', city: 'San Francisco, CA', country: 'US',
+    currency: 'USD', tax: 'CA', taxLabel: '加州',
+    col: { singleExRent: 1702, rent1br: 3524, index: 90.0, vintage: '2026-06-01' }
+  },
+  {
+    id: 'seattle', label: '西雅圖 Seattle', city: 'Seattle, WA', country: 'US',
+    currency: 'USD', tax: 'WA', taxLabel: '華州（無州所得稅）',
+    col: { singleExRent: 1562.70, rent1br: 2469.71, index: 76.9, vintage: '2026-10-27' }
+  },
+  {
+    id: 'austin', label: '德州 · 奧斯汀 Austin', city: 'Austin, TX', country: 'US',
+    currency: 'USD', tax: 'TX', taxLabel: '德州（無州所得稅）',
+    col: { singleExRent: 1227, rent1br: 1970, index: 59.2, vintage: '2026-06-01' }
+  },
+  {
+    id: 'dallas', label: '德州 · 達拉斯 Dallas', city: 'Dallas, TX', country: 'US',
+    currency: 'USD', tax: 'TX', taxLabel: '德州（無州所得稅）',
+    col: { singleExRent: 1287.50, rent1br: 1775.83, index: 60.8, vintage: '2026-06-01' }
+  },
+  {
+    id: 'taipei', label: '台北 Taipei', city: 'Taipei', country: 'TW',
+    currency: 'TWD', tax: 'TW', taxLabel: '台灣綜合所得稅',
+    col: { singleExRent: 26604, rent1br: 23534.67, index: 39.0, vintage: '2026-02' }
+  }
+];
+const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
+
+const DEFAULT_FX = 32.45; // CBC 新臺幣／美元銀行間收盤 2026/10/27
+
+/* ============================================================
+   2. 計算核心
+   ============================================================ */
+
+function progressiveTax(income, brackets) {
+  if (income <= 0) return 0;
+  let tax = 0, prev = 0;
+  for (const b of brackets) {
+    if (income > prev) {
+      tax += (Math.min(income, b.upTo) - prev) * b.rate;
+      prev = b.upTo;
+    }
+  }
+  return tax;
+}
+
+/* 勞保投保薪資級距（2026，11 級） */
+function laborInsuranceBase(monthlySalary) {
+  const t = TW_114.laborInsurance.tiers;
+  if (monthlySalary <= t[0]) return t[0];
+  for (const tier of t) if (monthlySalary <= tier) return tier;
+  return TW_114.laborInsurance.cap;
+}
+
+/* 計算一個地區的完整結果（annualSalary 以「當地貨幣」計） */
+function computeRegion(regionId, annualSalary, filing, fx) {
+  const region = REGION_BY_ID[regionId];
+  const lines = [];
+  let taxes = 0, pensionEmployer = 0, notes = [];
+
+  if (region.tax === 'TW') {
+    /* ---------- 台灣 ---------- */
+    const d = TW_114;
+    const people = filing === 'married' ? 2 : 1;
+    const exemption = d.exemptionPerPerson * people;
+    const standard = filing === 'married' ? d.standardDeduction.married : d.standardDeduction.single;
+    const netIncome = Math.max(0, annualSalary - exemption - d.salaryDeduction - standard);
+
+    let incomeTax = 0, rate = 0;
+    for (const b of d.brackets) {
+      if (netIncome <= b.upTo) { incomeTax = Math.max(0, netIncome * b.rate - b.diff); rate = b.rate; break; }
+    }
+    lines.push({ label: '綜合所得稅（114 年度級距）', amount: incomeTax, note: `適用稅率 ${(rate * 100).toFixed(0)}%` });
+
+    const monthly = annualSalary / 12;
+    const liBase = laborInsuranceBase(monthly);
+    const li = liBase * d.laborInsurance.rate * d.laborInsurance.employeeShare;
+    lines.push({ label: '勞工保險（自付 20%）', amount: li * 12, note: `投保薪資 ${fmtNum(liBase)}／月` });
+
+    const pensionBase = Math.min(monthly, d.pension.cap);
+    const nhiBase = Math.max(Math.min(monthly, d.nhi.cap), liBase, pensionBase);
+    const nhi = nhiBase * d.nhi.rate * d.nhi.employeeShare;
+    lines.push({ label: '全民健康保險（自付 30%）', amount: nhi * 12, note: `投保金額 ${fmtNum(nhiBase)}／月` });
+
+    pensionEmployer = pensionBase * d.pension.employerRate * 12;
+    taxes = incomeTax + li * 12 + nhi * 12;
+    notes.push('雇主提繳勞退 6% 不從薪資扣除，另列於下方。');
+
+  } else {
+    /* ---------- 美國 ---------- */
+    const f = FED_2026[filing];
+    const taxable = Math.max(0, annualSalary - f.std);
+    const federal = progressiveTax(taxable, f.brackets);
+    lines.push({ label: '聯邦所得稅', amount: federal, note: `標準扣除額 ${fmtMoney(f.std, 'USD')}` });
+
+    const ss = Math.min(annualSalary, FICA_2026.ssWageBase) * FICA_2026.ssRate;
+    lines.push({ label: 'Social Security 6.2%', amount: ss, note: `工資上限 ${fmtMoney(FICA_2026.ssWageBase, 'USD')}` });
+
+    const medicare = annualSalary * FICA_2026.medicareRate;
+    const thr = FICA_2026.addlThreshold[filing];
+    const addl = Math.max(0, annualSalary - thr) * FICA_2026.addlMedicareRate;
+    lines.push({
+      label: 'Medicare 1.45%' + (addl > 0 ? ' + 附加 0.9%' : ''),
+      amount: medicare + addl,
+      note: addl > 0 ? `附加稅門檻 ${fmtMoney(thr, 'USD')}` : '無附加 Medicare 稅'
+    });
+
+    let stateTax = 0, sdi = 0;
+    if (region.tax === 'CA') {
+      const c = CA_2026[filing];
+      const cTaxable = Math.max(0, annualSalary - c.std);
+      stateTax = Math.max(0, progressiveTax(cTaxable, c.brackets) - c.exemptionCredit);
+      if (cTaxable > CA_2026.mhstThreshold) {
+        stateTax += (cTaxable - CA_2026.mhstThreshold) * CA_2026.mhstRate;
+      }
+      lines.push({ label: '加州州所得稅', amount: stateTax, note: `標準扣除額 ${fmtMoney(c.std, 'USD')}` });
+      sdi = annualSalary * CA_2026.sdiRate;
+      lines.push({ label: '加州 SDI 1.3%（無上限）', amount: sdi, note: 'State Disability Insurance' });
+    } else {
+      lines.push({ label: '州所得稅', amount: 0, note: region.taxLabel });
+    }
+    taxes = federal + ss + medicare + addl + stateTax + sdi;
+  }
+
+  const net = Math.max(0, annualSalary - taxes);
+  const monthlyNet = net / 12;
+
+  const defaultBudget = region.col.singleExRent + region.col.rent1br;
+  const budget = budgetOverrides[regionId] != null ? budgetOverrides[regionId] : defaultBudget;
+
+  const savings = monthlyNet - budget;
+  const savingsRate = monthlyNet > 0 ? savings / monthlyNet : 0;
+  const coverage = budget > 0 ? monthlyNet / budget : 0;
+  const toUSD = region.currency === 'USD' ? 1 : 1 / fx;
+  const ppIndex = (monthlyNet * toUSD) / (region.col.index / 100);
+  const effectiveRate = annualSalary > 0 ? taxes / annualSalary : 0;
+
+  return {
+    region, annualSalary, filing, fx, lines, taxes, net, monthlyNet,
+    budget, defaultBudget, savings, savingsRate, coverage, ppIndex, effectiveRate,
+    pensionEmployer, notes,
+    monthlyNetUSD: monthlyNet * toUSD,
+    savingsUSD: savings * toUSD,
+    budgetUSD: budget * toUSD
+  };
+}
+
+/* 求出讓某地區達到目標購買力指數所需的年薪（單調遞增，用二分法） */
+function salaryForPP(regionId, filing, targetPP, fx) {
+  if (!(targetPP > 0)) return null;
+  let lo = 1000, hi = 2e9;
+  for (let i = 0; i < 90; i++) {
+    const mid = (lo + hi) / 2;
+    const r = computeRegion(regionId, mid, filing, fx);
+    if (r.ppIndex < targetPP) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/* ============================================================
+   3. 格式化
+   ============================================================ */
+const nfUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const nfUSD2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+/* TWD 用 en-US 格式才能帶出「NT$」前綴；zh-Hant-TW 在部分 ICU 下會省略前綴而與 USD 混淆 */
+const nfTWD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 });
+const nfTWD2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'TWD', maximumFractionDigits: 2 });
+const nfInt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+
+function fmtMoney(v, cur) {
+  if (!isFinite(v)) return '—';
+  return cur === 'TWD' ? nfTWD.format(v) : nfUSD.format(v);
+}
+function fmtMoney2(v, cur) {
+  if (!isFinite(v)) return '—';
+  return cur === 'TWD' ? nfTWD2.format(v) : nfUSD2.format(v);
+}
+function fmtNum(v) { return nfInt.format(v); }
+function fmtPct(v, d = 1) { return (v * 100).toFixed(d) + '%'; }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ============================================================
+   4. 狀態與 UI
+   ============================================================ */
+const state = {
+  salary: 150000,
+  currency: 'USD',
+  region: 'sanjose',
+  filing: 'single',
+  fx: DEFAULT_FX,
+  duelA: 'sanjose',
+  duelB: 'taipei'
+};
+let budgetOverrides = {};
+
+const $ = id => document.getElementById(id);
+const elRegion = $('region'), elSalary = $('salary'), elBudget = $('budget'),
+      elFx = $('fx'), elErr = $('err'), elDuelA = $('duelA'), elDuelB = $('duelB');
+
+function fillSelects() {
+  const opts = REGIONS.map(r => `<option value="${r.id}">${esc(r.label)}</option>`).join('');
+  elRegion.innerHTML = opts;
+  elDuelA.innerHTML = opts;
+  elDuelB.innerHTML = opts;
+}
+
+function setSeg(container, attr, value) {
+  container.querySelectorAll('button').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset[attr] === value));
+  });
+}
+
+function syncBudgetInput() {
+  const r = REGION_BY_ID[state.region];
+  const b = budgetOverrides[state.region] != null ? budgetOverrides[state.region] : (r.col.singleExRent + r.col.rent1br);
+  elBudget.value = Math.round(b);
+}
+
+/* 讀取輸入 → 狀態 */
+function readInputs() {
+  const s = parseFloat(elSalary.value);
+  if (!isFinite(s) || s < 0) { elErr.textContent = '請輸入有效的年薪金額。'; return false; }
+  elErr.textContent = '';
+  const fx = parseFloat(elFx.value);
+  if (!isFinite(fx) || fx <= 0) { elErr.textContent = '請輸入有效的匯率。'; return false; }
+  state.salary = s;
+  state.fx = fx;
+  state.region = elRegion.value;
+  state.duelA = elDuelA.value;
+  state.duelB = elDuelB.value;
+  return true;
+}
+
+/* 換算：輸入幣別 → 當地幣別 */
+function toLocal(amount, fromCur, toCur, fx) {
+  if (fromCur === toCur) return amount;
+  return fromCur === 'USD' ? amount * fx : amount / fx;
+}
+
+/* ---------- 繪製：主要結果 ---------- */
+function renderStats(r, inputAmount, inputCur) {
+  const localAnnual = r.annualSalary;
+  const cur = r.region.currency;
+
+  const covClass = r.coverage >= 2 ? 'ok' : r.coverage >= 1.3 ? 'warm' : 'cool';
+  const savClass = r.savings > 0 ? 'ok' : 'cool';
+  const ppClass = 'pp';
+
+  const altCur = cur === 'USD' ? 'TWD' : 'USD';
+  const altAmount = cur === 'USD' ? localAnnual * r.fx : localAnnual / r.fx;
+
+  $('resultSub').innerHTML =
+    `${esc(r.region.label)}（${esc(r.region.city)}）· ${esc(r.region.taxLabel)} · ` +
+    `年薪 ${fmtMoney(localAnnual, cur)}` +
+    (cur !== inputCur ? `（由 ${fmtMoney(inputAmount, inputCur)} 依 1 USD = ${r.fx} TWD 換算）` : '') +
+    ` · ${r.filing === 'married' ? '已婚合併申報' : '單人申報'}`;
+
+  const statRows = [
+    {
+      k: '稅後月收入', cls: '', value: fmtMoney(r.monthlyNet, cur),
+      d: `年 ${fmtMoney(r.net, cur)} · 有效稅率 ${fmtPct(r.effectiveRate)}`
+    },
+    {
+      k: '實質購買力指數', cls: ppClass, value: '$' + nfInt.format(r.ppIndex),
+      d: `以紐約物價計算的等值月收入（匯率 1 USD = ${r.fx.toFixed(2)} TWD）`
+    },
+    {
+      k: '生活費覆蓋倍數', cls: covClass, value: r.coverage.toFixed(2) + '×',
+      d: `稅後收入可負擔當地基本生活費 ${r.coverage.toFixed(2)} 倍`
+    },
+    {
+      k: '每月可儲蓄', cls: savClass, value: fmtMoney(r.savings, cur),
+      d: `儲蓄率 ${fmtPct(r.savingsRate)} · 年 ${fmtMoney(r.savings * 12, cur)}`
+    }
+  ];
+
+  $('stats').innerHTML = statRows.map(s => `
+    <div class="stat ${s.cls}">
+      <span class="k">${esc(s.k)}</span>
+      <div class="v">${s.value}</div>
+      <div class="d">${esc(s.d)}</div>
+    </div>`).join('');
+
+  /* 稅額明細 */
+  $('breakSub').innerHTML =
+    `各項扣除後的稅後年收入 <b>${fmtMoney(r.net, cur)}</b>；雇主另提繳勞退 ` +
+    `${r.pensionEmployer > 0 ? fmtMoney(r.pensionEmployer, cur) + '（存入你的勞退帳戶，不扣薪資）' : '不適用'}`;
+
+  const rows = r.lines.map(l => ({
+    label: l.label, note: l.note || '',
+    amount: fmtMoney(l.amount, cur),
+    isTax: true
+  }));
+  rows.push({ label: '稅額合計', note: '', amount: fmtMoney(r.taxes, cur), isTax: true, total: true });
+  rows.push({ label: '稅後年收入', note: '', amount: fmtMoney(r.net, cur), isTax: false, total: true });
+  rows.push({ label: '稅後月收入', note: '', amount: fmtMoney2(r.monthlyNet, cur), isTax: false, total: true });
+  rows.push({ label: '基本生活成本（月）', note: `Numbeo ${r.region.col.vintage}`, amount: fmtMoney(r.budget, cur), isTax: false });
+  rows.push({ label: '每月可儲蓄', note: `儲蓄率 ${fmtPct(r.savingsRate)}`, amount: fmtMoney2(r.savings, cur), isTax: false, strong: true });
+
+  $('breakTable').innerHTML = `
+    <thead><tr><th>項目</th><th>說明</th><th>年度金額（${esc(cur)}）</th></tr></thead>
+    <tbody>${rows.map(x => `
+      <tr${x.total ? ' class="sel"' : ''}>
+        <td>${esc(x.label)}</td>
+        <td style="text-align:left;color:var(--muted2)">${esc(x.note)}</td>
+        <td class="${x.strong ? 'pos' : ''}" style="${x.strong ? 'font-weight:700' : ''}">${x.amount}</td>
+      </tr>`).join('')}
+    </tbody>`;
+}
+
+/* ---------- 繪製：橫向比較表 ---------- */
+function renderCompare(inputAmount, inputCur) {
+  const fx = state.fx;
+  const results = REGIONS.map(rg => {
+    const local = toLocal(inputAmount, inputCur, rg.currency, fx);
+    return computeRegion(rg.id, local, state.filing, fx);
+  });
+
+  const maxPP = Math.max(...results.map(r => r.ppIndex), 1);
+  const maxSav = Math.max(...results.map(r => Math.max(0, r.savingsUSD)), 1);
+
+  $('compareSub').innerHTML =
+    `以輸入的 <b>${fmtMoney(inputAmount, inputCur)}</b>（${inputCur === 'USD' ? '美元' : '新台幣'}）` +
+    ` 為基準，依匯率換算後在各地區計稅；依「實質購買力指數」由高到低排序。`;
+
+  const body = results
+    .slice()
+    .sort((a, b) => b.ppIndex - a.ppIndex)
+    .map(r => {
+      const sel = r.region.id === state.region ? ' class="sel"' : '';
+      const savCls = r.savings > 0 ? 'pos' : 'neg';
+      return `
+      <tr${sel}>
+        <td>${esc(r.region.label)}<span class="tag">${esc(r.region.taxLabel.split('（')[0])}</span></td>
+        <td>${fmtMoney2(r.monthlyNetUSD, 'USD')}</td>
+        <td>${fmtMoney2(r.monthlyNet, r.region.currency)}</td>
+        <td>${fmtPct(r.effectiveRate)}</td>
+        <td>$${nfInt.format(r.ppIndex)}
+          <div class="bar"><i style="width:${(r.ppIndex / maxPP * 100).toFixed(1)}%"></i></div>
+        </td>
+        <td>${r.coverage.toFixed(2)}×</td>
+        <td class="${savCls}">${fmtMoney2(r.savingsUSD, 'USD')}
+          <div class="bar"><i style="width:${(Math.max(0, r.savingsUSD) / maxSav * 100).toFixed(1)}%"></i></div>
+        </td>
+      </tr>`;
+    }).join('');
+
+  $('compareTable').innerHTML = `
+    <thead><tr>
+      <th>地區</th>
+      <th>稅後月收入 (USD)</th>
+      <th>稅後月收入 (當地)</th>
+      <th>有效稅率</th>
+      <th>購買力指數</th>
+      <th>覆蓋倍數</th>
+      <th>可儲蓄 (USD/月)</th>
+    </tr></thead>
+    <tbody>${body}</tbody>`;
+}
+
+/* ---------- 繪製：雙城對決 ---------- */
+function renderDuel(inputAmount, inputCur) {
+  const fx = state.fx;
+  const a = computeRegion(state.duelA, toLocal(inputAmount, inputCur, REGION_BY_ID[state.duelA].currency, fx), state.filing, fx);
+  const b = computeRegion(state.duelB, toLocal(inputAmount, inputCur, REGION_BY_ID[state.duelB].currency, fx), state.filing, fx);
+
+  const metrics = [
+    { k: '稅後月收入', f: r => fmtMoney2(r.monthlyNet, r.region.currency), num: r => r.monthlyNetUSD },
+    { k: '有效稅率', f: r => fmtPct(r.effectiveRate), num: r => -r.effectiveRate },
+    { k: '購買力指數', f: r => '$' + nfInt.format(r.ppIndex), num: r => r.ppIndex },
+    { k: '生活費覆蓋倍數', f: r => r.coverage.toFixed(2) + '×', num: r => r.coverage },
+    { k: '每月可儲蓄', f: r => fmtMoney2(r.savings, r.region.currency), num: r => r.savingsUSD },
+    { k: '基本生活成本/月', f: r => fmtMoney(r.budget, r.region.currency), num: r => -r.budgetUSD }
+  ];
+
+  const card = (r, other, tag) => {
+    const lines = metrics.map(m => {
+      const mine = m.num(r), theirs = m.num(other);
+      const win = mine > theirs;
+      const lose = mine < theirs;
+      const badge = (win || lose) ? `<span class="badge ${win ? 'win' : 'lose'}">${win ? '勝' : '負'}</span>` : '';
+      return `<div class="mline"><span class="lb">${esc(m.k)}</span><span class="vl">${m.f(r)} ${badge}</span></div>`;
+    }).join('');
+    return `
+      <div class="side-card">
+        <h3>${esc(r.region.label)}<span class="tag">${esc(r.region.city)}</span></h3>
+        <div class="meta">${esc(r.region.taxLabel)} · 年薪 ${fmtMoney(r.annualSalary, r.region.currency)} · ${r.filing === 'married' ? '已婚合併' : '單人'}</div>
+        ${lines}
+      </div>`;
+  };
+
+  /* 等值薪資：讓 B 地的購買力達到 A 地 */
+  const eqSalaryB = salaryForPP(state.duelB, state.filing, a.ppIndex, fx);
+  const eqSalaryA = salaryForPP(state.duelA, state.filing, b.ppIndex, fx);
+
+  const eqLine = `
+    <div class="card" style="margin:0;background:rgba(110,168,254,.07);border-color:rgba(110,168,254,.35)">
+      <h3 style="margin:0 0 8px;font-size:.95rem">等值薪資：想拿到對方一樣的購買力</h3>
+      <div class="mline"><span class="lb">${esc(a.region.label)} 要達到 ${esc(b.region.label)} 的購買力</span><span class="vl">${eqSalaryA != null ? fmtMoney(eqSalaryA, a.region.currency) : '—'}</span></div>
+      <div class="mline"><span class="lb">${esc(b.region.label)} 要達到 ${esc(a.region.label)} 的購買力</span><span class="vl">${eqSalaryB != null ? fmtMoney(eqSalaryB, b.region.currency) : '—'}</span></div>
+      <p style="margin:10px 0 0;color:var(--muted2);font-size:.76rem">以「購買力指數」（紐約物價等值月收入）為基準，採二分法求解，已考慮各自稅制。${a.region.country === 'TW' && b.region.country === 'TW' ? '' : '跨國比較時，薪資以名目匯率換算，未考慮未來匯率變動。'}</p>
+    </div>`;
+
+  $('duel').innerHTML = card(a, b) + card(b, a) + eqLine;
+}
+
+/* ---------- 主流程 ---------- */
+function render() {
+  if (!readInputs()) return;
+  const r = computeRegion(state.region, toLocal(state.salary, state.currency, REGION_BY_ID[state.region].currency, state.fx), state.filing, state.fx);
+  renderStats(r, state.salary, state.currency);
+  renderCompare(state.salary, state.currency);
+  renderDuel(state.salary, state.currency);
+  $('stampFx').textContent = `匯率 1 USD = ${state.fx} TWD`;
+}
+
+/* ============================================================
+   5. 事件綁定
+   ============================================================ */
+function init() {
+  fillSelects();
+  elRegion.value = state.region;
+  elDuelA.value = state.duelA;
+  elDuelB.value = state.duelB;
+  syncBudgetInput();
+
+  $('curSeg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-cur]');
+    if (!b) return;
+    state.currency = b.dataset.cur;
+    setSeg($('curSeg'), 'cur', state.currency);
+    render();
+  });
+
+  $('filingSeg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-filing]');
+    if (!b) return;
+    state.filing = b.dataset.filing;
+    setSeg($('filingSeg'), 'filing', state.filing);
+    render();
+  });
+
+  elRegion.addEventListener('change', () => { state.region = elRegion.value; syncBudgetInput(); render(); });
+  elDuelA.addEventListener('change', () => { state.duelA = elDuelA.value; render(); });
+  elDuelB.addEventListener('change', () => { state.duelB = elDuelB.value; render(); });
+
+  elBudget.addEventListener('input', () => {
+    const v = parseFloat(elBudget.value);
+    if (isFinite(v) && v >= 0) budgetOverrides[state.region] = v;
+  });
+  $('budgetReset').addEventListener('click', () => {
+    delete budgetOverrides[state.region];
+    syncBudgetInput();
+    render();
+  });
+
+  $('calcBtn').addEventListener('click', render);
+  elSalary.addEventListener('keydown', e => { if (e.key === 'Enter') render(); });
+
+  document.querySelectorAll('.preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.preset;
+      budgetOverrides = {};
+      if (p === 'sv') { elSalary.value = 150000; state.currency = 'USD'; elRegion.value = 'sanjose'; state.region = 'sanjose'; }
+      if (p === 'tpe') { elSalary.value = 2000000; state.currency = 'TWD'; elRegion.value = 'taipei'; state.region = 'taipei'; }
+      if (p === 'tx') { elSalary.value = 80000; state.currency = 'USD'; elRegion.value = 'austin'; state.region = 'austin'; }
+      setSeg($('curSeg'), 'cur', state.currency);
+      syncBudgetInput();
+      render();
+      /* 立即（非平滑）捲到結果卡片：避免動畫期間重複點擊造成版面位移 */
+      $('resultCard').scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+  });
+
+  /* 輸入即時重算，讓試算結果不必等按下按鈕 */
+  let liveTimer = null;
+  const scheduleRender = () => {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(() => { if (readInputs()) { renderStatsOnly(); } }, 160);
+  };
+  elSalary.addEventListener('input', scheduleRender);
+  elFx.addEventListener('input', scheduleRender);
+  elBudget.addEventListener('input', scheduleRender);
+
+  render();
+}
+
+/* 只重繪結果（不重繪輸入框），供即時重算使用 */
+function renderStatsOnly() {
+  const r = computeRegion(state.region, toLocal(state.salary, state.currency, REGION_BY_ID[state.region].currency, state.fx), state.filing, state.fx);
+  renderStats(r, state.salary, state.currency);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
